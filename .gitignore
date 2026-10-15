@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+
+# Local credentials and diagnostic captures never belong in source control.
+.env
+.env.*
+identity/
+credentials/
+captures/
+research/
+*.pk8
+*.p7b
+*.p12
+*.pfx
+*.pem
+*.key
+*.der
+*.log
+*.apk
+*.dmg

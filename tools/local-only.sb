@@ -1,0 +1,5 @@
+(version 1)
+(allow default)
+(deny network-outbound (remote ip))
+(deny network-inbound (local ip))
+(deny mach-lookup (global-name "com.apple.nsurlsessiond"))

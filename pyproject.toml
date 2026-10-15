@@ -1,0 +1,38 @@
+[project]
+name = "accessory-location"
+version = "0.1.0"
+description = "Local iAP2 accessory-location client for macOS"
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = ["cryptography>=43", "pymobiledevice3>=9.40,<10"]
+
+[project.urls]
+Repository = "https://github.com/aur3l14no/accessory-location"
+Issues = "https://github.com/aur3l14no/accessory-location/issues"
+
+[project.scripts]
+accessory-location = "accessory_location.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.9"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/accessory_location"]
