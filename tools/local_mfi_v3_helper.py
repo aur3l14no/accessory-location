@@ -76,6 +76,46 @@ def read_identity_file(variable):
     return data
 
 
+def validate_identity(certificate, encoded_key):
+    """Check bounded DER containers and a unique matching P-256 leaf; return the key."""
+    for data in (certificate, encoded_key):
+        if not data or len(data) > MAX_IDENTITY_BYTES:
+            raise ProviderError(f"Identity files must contain 1..{MAX_IDENTITY_BYTES} bytes")
+    try:
+        certificates = pkcs7.load_der_pkcs7_certificates(certificate)
+    except (ValueError, TypeError):
+        raise ProviderError("Certificate must be a DER PKCS#7 container") from None
+    if not certificates:
+        raise ProviderError("PKCS#7 container has no certificates")
+    if not is_pkcs8(encoded_key):
+        raise ProviderError("Private key must be unencrypted DER PKCS#8")
+    try:
+        key = serialization.load_der_private_key(encoded_key, password=None)
+    except (ValueError, TypeError):
+        raise ProviderError("Private key must be unencrypted DER PKCS#8") from None
+    if not isinstance(key, ec.EllipticCurvePrivateKey) or not isinstance(
+        key.curve, ec.SECP256R1
+    ):
+        raise ProviderError("Private key must use P-256")
+    matching_leaves = 0
+    for cert in certificates:
+        try:
+            if cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca:
+                continue
+        except x509.ExtensionNotFound:
+            pass
+        public_key = cert.public_key()
+        if (
+            isinstance(public_key, ec.EllipticCurvePublicKey)
+            and isinstance(public_key.curve, ec.SECP256R1)
+            and public_key.public_numbers() == key.public_key().public_numbers()
+        ):
+            matching_leaves += 1
+    if matching_leaves != 1:
+        raise ProviderError("Private key must match exactly one non-CA leaf certificate")
+    return key
+
+
 class LocalMfiV3:
     def __init__(self):
         self.key = None
@@ -86,38 +126,7 @@ class LocalMfiV3:
             return
         certificate = read_identity_file("ACCESSORY_MFI_CERT_FILE")
         encoded_key = read_identity_file("ACCESSORY_MFI_KEY_FILE")
-        try:
-            certificates = pkcs7.load_der_pkcs7_certificates(certificate)
-        except (ValueError, TypeError):
-            raise ProviderError("Certificate must be a DER PKCS#7 container") from None
-        if not certificates:
-            raise ProviderError("PKCS#7 container has no certificates")
-        if not is_pkcs8(encoded_key):
-            raise ProviderError("Private key must be unencrypted DER PKCS#8")
-        try:
-            key = serialization.load_der_private_key(encoded_key, password=None)
-        except (ValueError, TypeError):
-            raise ProviderError("Private key must be unencrypted DER PKCS#8") from None
-        if not isinstance(key, ec.EllipticCurvePrivateKey) or not isinstance(
-            key.curve, ec.SECP256R1
-        ):
-            raise ProviderError("Private key must use P-256")
-        matching_leaves = 0
-        for cert in certificates:
-            try:
-                if cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca:
-                    continue
-            except x509.ExtensionNotFound:
-                pass
-            public_key = cert.public_key()
-            if (
-                isinstance(public_key, ec.EllipticCurvePublicKey)
-                and isinstance(public_key.curve, ec.SECP256R1)
-                and public_key.public_numbers() == key.public_key().public_numbers()
-            ):
-                matching_leaves += 1
-        if matching_leaves != 1:
-            raise ProviderError("Private key must match exactly one non-CA leaf certificate")
+        key = validate_identity(certificate, encoded_key)
         self.key = key
         self.certificate = certificate
 

@@ -6,8 +6,9 @@ phone requests them.
 
 **Experimental · GPL-3.0-only.** You must supply an accessory certificate and
 matching private key accepted by the device. This project does not include or
-generate those credentials. USB is the primary transport; the Bluetooth bridge
-is experimental.
+generate those credentials; an optional importer can read the shared experimental
+identity from DiPlay's preview APK. USB is the primary transport; the Bluetooth
+bridge is experimental.
 
 ## TL;DR — let an agent help
 
@@ -37,10 +38,10 @@ the real position returns. Test with synthetic credentials before device use.
 ```text
 Help me run https://github.com/aur3l14no/accessory-location on my Mac, guiding me
 one step at a time. Read its README and authentication documentation, inspect the
-code, and set up dependencies with uv. Help me prepare a matching MFi-v3 identity
-using the documented sources; do not assume credentials are bundled. Keep them
-outside the checkout and never upload them. Ask for my target coordinates, then
-help me connect, unlock, and trust the iPhone over USB. Run the sender through
+code, and set up dependencies with uv. Explain the documented identity sources
+and help me use the optional DiPlay importer or my own matching MFi-v3 identity.
+Keep credentials outside the checkout and never upload them. Ask for my target
+coordinates, then help me connect, unlock, and trust the iPhone over USB. Run the sender through
 tools/local-only.sb for a bounded session. Guide me to open Maps and, if needed,
 toggle Location Services off for about 10 seconds and back on. Distinguish
 authentication, subscription, packet acknowledgement, and actual map movement.
@@ -50,12 +51,9 @@ change unrelated device settings or include device identifiers in shared logs.
 
 ## Usage
 
-From the repository directory, after [setup](#setup):
+From the repository directory, after [setup](#setup) and exporting the identity paths:
 
 ```sh
-export ACCESSORY_MFI_CERT_FILE=/absolute/path/to/certificate.p7b
-export ACCESSORY_MFI_KEY_FILE=/absolute/path/to/identity.pk8
-
 uv run accessory-location send --transport usb \
   --auth-helper tools/local_mfi_v3_helper.py \
   --latitude 48.1173 --longitude 11.5167 --duration 180
@@ -92,9 +90,31 @@ uv sync --locked
 
 Keep identity files outside the checkout. The included helper expects a DER
 PKCS#7 certificate container and an unencrypted DER PKCS#8 P-256 private key.
-See [authentication](docs/authentication.md) for validation rules, the helper
-interface, and upstream identity documentation. A self-signed test certificate
-does not establish device trust.
+A self-signed test certificate does not establish device trust.
+
+For your own identity files, set their paths:
+
+```sh
+export ACCESSORY_MFI_CERT_FILE=/absolute/path/to/certificate.p7b
+export ACCESSORY_MFI_KEY_FILE=/absolute/path/to/identity.pk8
+```
+
+Alternatively, for the shared experimental identity described in [DiPlay's provenance notes](https://github.com/shihabal3amri/DiPlay/blob/main/docs/THIRD_PARTY_NOTICES.md#experimental-authentication-data),
+run this optional import step:
+
+```sh
+uv run python tools/import_diplay_identity.py --download
+```
+
+It downloads the pinned v0.2.7 APK, checks its SHA-256, validates the certificate
+and key, and saves only those two files outside the checkout. It never installs
+or runs the APK. Copy the two `export` commands it prints into your shell before
+running the client. The APK is discarded after import. This setup step requires
+network access; the sender and authentication helper remain local.
+
+To import an already downloaded copy instead, use `--apk /path/to/DiPlay-0.2.7.apk`.
+See [authentication](docs/authentication.md#import-from-diplay) for the pinned hash,
+output location, and what importing a shared identity means.
 
 To observe the handshake without sending coordinates:
 
